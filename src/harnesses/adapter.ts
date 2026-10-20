@@ -31,6 +31,7 @@ export interface BuildInput {
   workDir: string
   isolation: 'clean' | 'project'
   imageHint: string
+  imageListLabel: string
 }
 
 export interface Invocation {

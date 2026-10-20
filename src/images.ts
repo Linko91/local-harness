@@ -25,38 +25,56 @@ export interface LoadedImage {
 
 export type LoadedPart = { type: 'text'; text: string } | ({ type: 'image' } & LoadedImage)
 
-/** A prompt as parts, with every image read and checked. */
-export async function loadParts(prompt: string | PromptPart[], harness: HarnessId): Promise<LoadedPart[]> {
-  if (typeof prompt === 'string') return [{ type: 'text', text: prompt }]
-  const out: LoadedPart[] = []
+/**
+ * A prompt as parts, with every image read and checked. With `skipUnreadable`, an
+ * image that cannot be used is left out and its path listed in `skipped`.
+ */
+export async function loadParts(
+  prompt: string | PromptPart[],
+  harness: HarnessId,
+  skipUnreadable = false
+): Promise<{ parts: LoadedPart[]; skipped: string[] }> {
+  if (typeof prompt === 'string') return { parts: [{ type: 'text', text: prompt }], skipped: [] }
+  const parts: LoadedPart[] = []
+  const skipped: string[] = []
   for (const part of prompt) {
     if (part.type === 'text') {
-      out.push({ type: 'text', text: part.text })
+      parts.push({ type: 'text', text: part.text })
       continue
     }
     let data: Buffer
     try {
       data = await fs.readFile(part.path)
     } catch (err) {
+      if (skipUnreadable) {
+        skipped.push(part.path)
+        continue
+      }
       throw new HarnessError('UNSUPPORTED_INPUT', `Cannot read the image ${part.path}.`, { harness, cause: err })
     }
     const mediaType = mediaTypeOf(data)
-    if (!mediaType)
+    if (!mediaType) {
+      if (skipUnreadable) {
+        skipped.push(part.path)
+        continue
+      }
       throw new HarnessError('UNSUPPORTED_INPUT', `${part.path} is not a JPEG, PNG, GIF or WebP image.`, { harness })
-    out.push({ type: 'image', name: part.name || basename(part.path), path: part.path, mediaType, data })
+    }
+    parts.push({ type: 'image', name: part.name || basename(part.path), path: part.path, mediaType, data })
   }
-  return out
+  return { parts, skipped }
 }
 
 export const hasImages = (parts: LoadedPart[]): boolean => parts.some((p) => p.type === 'image')
 
 export const DEFAULT_IMAGE_HINT = 'The images mentioned are files in this folder: look at all of them before answering.'
+export const DEFAULT_IMAGE_LIST_LABEL = 'Images'
 
 /**
  * The prompt as plain text, for harnesses that read images from files: after
  * each block of text, the names of the images that belong to it.
  */
-export function partsToText(parts: LoadedPart[]): string {
+export function partsToText(parts: LoadedPart[], label = DEFAULT_IMAGE_LIST_LABEL): string {
   const blocks: { text: string; images: string[] }[] = []
   for (const p of parts) {
     if (p.type === 'text') blocks.push({ text: p.text, images: [] })
@@ -64,6 +82,6 @@ export function partsToText(parts: LoadedPart[]): string {
     else blocks.push({ text: '', images: [p.name] })
   }
   return blocks
-    .map((b) => (b.images.length ? `${b.text}${b.text ? '\n' : ''}Images: ${b.images.join(', ')}` : b.text))
+    .map((b) => (b.images.length ? `${b.text}${b.text ? '\n' : ''}${label}: ${b.images.join(', ')}` : b.text))
     .join('\n\n')
 }

@@ -7,7 +7,7 @@
     "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,

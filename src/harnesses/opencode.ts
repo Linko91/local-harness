@@ -57,8 +57,8 @@ export const opencode: Adapter = {
   acceptsModel: (value) => typeof value === 'string' && /^[\w.:@/[\]-]{0,96}$/.test(value),
   caps: catalogCaps,
 
-  async build({ parts, system, resolved }) {
-    const text = partsToText(parts)
+  async build({ parts, system, resolved, imageListLabel }) {
+    const text = partsToText(parts, imageListLabel)
     return {
       args: ['run', ...(resolved.model ? ['-m', resolved.model] : [])],
       optional: [],

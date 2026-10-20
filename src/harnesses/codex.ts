@@ -67,8 +67,8 @@ export const codex: Adapter = {
   acceptsModel: (value) => typeof value === 'string' && /^[\w.:/-]{0,64}$/.test(value),
   caps: catalogCaps,
 
-  async build({ parts, system, resolved, isolation }) {
-    const text = partsToText(parts)
+  async build({ parts, system, resolved, isolation, imageListLabel }) {
+    const text = partsToText(parts, imageListLabel)
     const args = ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '--json']
     if (resolved.model) args.push('-m', resolved.model)
     if (resolved.effort) args.push('-c', `model_reasoning_effort="${resolved.effort}"`)

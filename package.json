@@ -1,6 +1,6 @@
 {
   "name": "local-harness",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One JavaScript API for the AI agent CLIs installed on this machine (Claude Code, Cursor, Codex, Gemini CLI, OpenCode): discover them, read their models and capabilities, and send prompts.",
   "keywords": [
     "ai",
@@ -44,6 +44,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "sideEffects": false,

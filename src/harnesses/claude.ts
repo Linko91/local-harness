@@ -22,7 +22,8 @@ const ALIASES: ModelInfo[] = [
   { id: 'fable', label: 'Fable', efforts: EFFORTS, fast: false }
 ]
 
-const MODEL_RE = /^(?:claude-[\w.-]{1,60}|[a-z][\w.-]{0,30})(?:\[\w+\])?$/
+/** Full names, and the aliases Claude Code knows (the catalog's plus `opusplan` and `default`), with an optional `[1m]`. */
+const MODEL_RE = /^(?:claude-[\w.-]{1,60}|opus|sonnet|haiku|fable|opusplan|default)(?:\[\w+\])?$/
 
 /** Fast mode exists only for Opus; Haiku has no effort levels. */
 function capsOf(model: string): { efforts: Effort[]; fast: boolean } {
@@ -118,7 +119,8 @@ export const claude: Adapter = {
       )
       input = JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n'
     } else {
-      input = parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+      // Separate text parts are separate paragraphs, as for the CLIs that get plain text.
+      input = parts.map((p) => (p.type === 'text' ? p.text : '')).join('\n\n')
     }
     return { args, optional, optionalCarries, input }
   },
@@ -141,14 +143,16 @@ export const claude: Adapter = {
     const model = str(init?.model) ?? modelUsage[0]
     const cliDurationMs = num(json.duration_ms)
     const sessionId = str(json.session_id)
+    const outputTokens = num(usage.output_tokens)
+    const costUsd = num(json.total_cost_usd)
     return {
       text: json.result,
       ...(model ? { model } : {}),
       ...(cliDurationMs !== undefined ? { cliDurationMs } : {}),
       usage: {
         ...(input.length ? { inputTokens: input.reduce((a, b) => a + b, 0) } : {}),
-        ...(num(usage.output_tokens) !== undefined ? { outputTokens: num(usage.output_tokens) } : {}),
-        ...(num(json.total_cost_usd) !== undefined ? { costUsd: num(json.total_cost_usd) } : {})
+        ...(outputTokens !== undefined ? { outputTokens } : {}),
+        ...(costUsd !== undefined ? { costUsd } : {})
       },
       ...(sessionId ? { sessionId } : {})
     }

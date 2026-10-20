@@ -7,7 +7,7 @@ import { HarnessError, isErrnoException } from './errors.js'
 import type { Adapter, AdapterContext, BuildInput, Invocation, Resolved, RunCli } from './harnesses/adapter.js'
 import { effortsUnion } from './harnesses/adapter.js'
 import { ADAPTERS, HARNESS_IDS } from './harnesses/index.js'
-import { DEFAULT_IMAGE_HINT, hasImages, loadParts } from './images.js'
+import { DEFAULT_IMAGE_HINT, DEFAULT_IMAGE_LIST_LABEL, hasImages, loadParts } from './images.js'
 import { exec } from './process.js'
 import { rejectsFlag } from './process.js'
 import { parseVersion, unwrapText } from './text.js'
@@ -91,7 +91,7 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
     return cached(modelCache, adapter.id, ttl.models, refresh, () => adapter.catalog(run, context()))
   }
 
-  async function probe(adapter: Adapter, detail: 'basic' | 'full'): Promise<Harness> {
+  async function probe(adapter: Adapter, detail: 'basic' | 'full', refresh: boolean): Promise<Harness> {
     const info: Harness = {
       id: adapter.id,
       name: adapter.name,
@@ -134,7 +134,7 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
     let catalog: ModelCatalog
     try {
       // Without a login the CLI cannot list models.
-      catalog = await catalogOf(adapter, info.installed && info.auth.loggedIn !== false ? run : null)
+      catalog = await catalogOf(adapter, info.installed && info.auth.loggedIn !== false ? run : null, refresh)
     } catch {
       catalog = await adapter.catalog(null, ctx)
     }
@@ -151,7 +151,8 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
   async function getHarness(id: HarnessId, options: Omit<DiscoveryOptions, 'only' | 'includeMissing'> = {}): Promise<Harness> {
     const adapter = adapterOf(id)
     const detail = options.detail ?? 'full'
-    return cached(discoveryCache, `${id}:${detail}`, ttl.discovery, options.refresh, () => probe(adapter, detail))
+    // `refresh` also re-reads the model catalog.
+    return cached(discoveryCache, `${id}:${detail}`, ttl.discovery, options.refresh, () => probe(adapter, detail, options.refresh === true))
   }
 
   async function getHarnesses(options: DiscoveryOptions = {}): Promise<Harness[]> {
@@ -160,9 +161,11 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
     return options.includeMissing ? list : list.filter((h) => h.installed)
   }
 
-  async function getModels(id: HarnessId, options: { refresh?: boolean } = {}): Promise<ModelCatalog> {
+  async function getModels(id: HarnessId, options: { refresh?: boolean | undefined } = {}): Promise<ModelCatalog> {
     const adapter = adapterOf(id)
     const { bin, path } = await locate(adapter)
+    // A built-in catalog does not need the CLI.
+    if (!bin && !adapter.cliCatalog) return adapter.catalog(null, context())
     if (!bin) throw notInstalled(adapter)
     return catalogOf(adapter, runner(adapter, bin, path), options.refresh)
   }
@@ -194,11 +197,11 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
     prompt: string | PromptPart[],
     options: AskOptions,
     workDir: string
-  ): Promise<{ adapter: Adapter; bin: string; path: string; inv: Invocation; resolved: Resolved; cwd: string }> {
+  ): Promise<{ adapter: Adapter; bin: string; path: string; inv: Invocation; resolved: Resolved; cwd: string; skipped: string[] }> {
     const adapter = adapterOf(id)
     const { bin, path } = await locate(adapter)
     if (!bin) throw notInstalled(adapter)
-    const parts = await loadParts(prompt, id)
+    const { parts, skipped } = await loadParts(prompt, id, options.skipUnreadableImages === true)
     if (hasImages(parts) && !adapter.images)
       throw new HarnessError('UNSUPPORTED_INPUT', `${adapter.name} does not accept images.`, { harness: id })
 
@@ -217,9 +220,10 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
       cwd,
       workDir,
       isolation: options.isolation ?? (options.cwd ? 'project' : 'clean'),
-      imageHint: options.imageHint ?? DEFAULT_IMAGE_HINT
+      imageHint: options.imageHint ?? DEFAULT_IMAGE_HINT,
+      imageListLabel: options.imageListLabel ?? DEFAULT_IMAGE_LIST_LABEL
     }
-    return { adapter, bin, path, inv: await adapter.build(input), resolved, cwd }
+    return { adapter, bin, path, inv: await adapter.build(input), resolved, cwd, skipped }
   }
 
   const newWorkDir = (): Promise<string> => fs.mkdtemp(join(tmpdir(), 'local-harness-'))
@@ -240,7 +244,7 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
     const workDir = await newWorkDir()
     try {
       if (controller.signal.aborted) throw new HarnessError('ABORTED', 'Request cancelled.', { harness: id })
-      const { adapter, bin, path, inv, resolved, cwd } = await prepare(id, prompt, options, workDir)
+      const { adapter, bin, path, inv, resolved, cwd, skipped } = await prepare(id, prompt, options, workDir)
       const env = envFor(adapter, path, options.env)
       const run = (args: string[]) =>
         exec(bin, args, {
@@ -274,6 +278,7 @@ export function createClient(config: ClientConfig = {}): HarnessClient {
         cliDurationMs: answer.cliDurationMs ?? null,
         ...(answer.usage && Object.keys(answer.usage).length ? { usage: answer.usage } : {}),
         ...(answer.sessionId ? { sessionId: answer.sessionId } : {}),
+        ...(skipped.length ? { skippedImages: skipped } : {}),
         applied,
         args,
         raw: out.stdout

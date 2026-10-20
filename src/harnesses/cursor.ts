@@ -142,11 +142,11 @@ export const cursor: Adapter = {
     return { model, effort: null, fast: null }
   },
 
-  async build({ parts, system, resolved, cwd, workDir, imageHint }) {
+  async build({ parts, system, resolved, cwd, workDir, imageHint, imageListLabel }) {
     const images = hasImages(parts)
     // Cursor has no image input: the images become files in the request's own folder.
     for (const p of parts) if (p.type === 'image') await fs.writeFile(join(workDir, p.name), p.data)
-    const text = partsToText(parts)
+    const text = partsToText(parts, imageListLabel)
     // No separate system prompt either: it goes at the top of the message.
     const prompt = [system, system !== undefined ? '---' : undefined, images ? imageHint || DEFAULT_IMAGE_HINT : undefined, text]
       .filter((s): s is string => s !== undefined)

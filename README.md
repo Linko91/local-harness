@@ -59,7 +59,7 @@ Checks every CLI in parallel. By default returns only the installed ones, with a
 | `includeMissing` | `false`  | Also return CLIs that are not installed (`installed: false`). |
 | `detail`         | `'full'` | `'basic'`: path and version only (one process per CLI). `'full'`: also login, models, defaults. |
 | `only`           | all      | Only check these ids. |
-| `refresh`        | `false`  | Ignore the cache. |
+| `refresh`        | `false`  | Ignore the cache, model catalogs included. |
 
 Each entry:
 
@@ -99,7 +99,7 @@ The same check for one CLI. Always resolves, installed or not.
 
 ### `getModels(id, { refresh? })`
 
-Only the model catalog. Cursor's comes from the CLI and is cached for 10 minutes. Rejects with `NOT_INSTALLED` when the CLI is missing.
+Only the model catalog. Cursor's and OpenCode's come from the CLI and are cached for 10 minutes; they reject with `NOT_INSTALLED` when the CLI is missing. The built-in catalogs (Claude Code, Codex, Gemini) are returned even without the CLI.
 
 ## Interaction
 
@@ -126,6 +126,8 @@ The CLI runs headless, without tools and read-only. The prompt goes through stdi
 | `unwrap`     | `false` | Strip a code fence or `<text>` tags around the answer. |
 | `strict`     | `false` | Reject with `UNSUPPORTED_OPTION` instead of ignoring an effort or fast mode the model lacks. |
 | `imageHint`  | English sentence | For CLIs that read images from files (Cursor): the sentence that tells the agent to look at them. |
+| `imageListLabel` | `'Images'` | For the same CLIs: the word before the list of image names (`Images: a.jpg, b.jpg`). |
+| `skipUnreadableImages` | `false` | Leave out images that cannot be read or are not JPEG, PNG, GIF or WebP, instead of rejecting with `UNSUPPORTED_INPUT`. They are listed in `skippedImages`. |
 
 ```ts
 interface AskResult {
@@ -136,6 +138,7 @@ interface AskResult {
   cliDurationMs: number | null // as reported by the CLI
   usage?: { inputTokens?: number; outputTokens?: number; costUsd?: number }
   sessionId?: string
+  skippedImages?: string[]     // with skipUnreadableImages
   applied: { model: string | null; effort: Effort | null; fast: boolean | null }  // what the CLI actually got
   args: string[]
   raw: string
@@ -144,7 +147,7 @@ interface AskResult {
 
 ### Images
 
-Pass a list of parts instead of a string: text and images in the order the model should read them. `name` is how the text refers to the image.
+Pass a list of parts instead of a string: text and images in the order the model should read them. `name` is how the text refers to the image. Consecutive text parts are separated by a blank line.
 
 ```js
 const { text } = await ask('claude', [
@@ -205,7 +208,7 @@ Everything throws `HarnessError`, with a stable `code`, an English `message`, th
 | ------ | - |
 | `HARNESS_IDS`, `isHarnessId(v)` | The supported ids. |
 | `isEffort(v, id?)` | Whether `v` is an effort level (one that CLI accepts, when given). |
-| `acceptsModel(id, v)` | Whether a model name is acceptable for a CLI, by syntax alone. |
+| `acceptsModel(id, v)` | Whether a model name is acceptable for a CLI. For Claude Code: `claude-…` names and its aliases (`opus`, `sonnet`, `haiku`, `fable`, `opusplan`, `default`, also with `[1m]`); for the others, by syntax alone. |
 | `resolveArgs(id, prompt?, options?)` | The arguments `ask()` would pass, without running the CLI. |
 | `extractJson(text)` | The first JSON value in an answer, even inside a code fence, after a sentence, or repeated. |
 | `unwrapText(text)` | What `unwrap: true` does. |

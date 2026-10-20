@@ -177,6 +177,40 @@ describe('ask: Claude Code', () => {
     await expect(client.ask('claude', [{ type: 'image', path: txt }])).rejects.toMatchObject({ code: 'UNSUPPORTED_INPUT' })
   })
 
+  it('can leave out unreadable images and say which', async () => {
+    const red = pngFile(images, 'red.png')
+    const missing = join(images, 'missing.jpg')
+    const client = createClient({ path: box.bin })
+    const res = await client.ask(
+      'claude',
+      [
+        { type: 'text', text: 'Look' },
+        { type: 'image', path: missing },
+        { type: 'image', path: red }
+      ],
+      { skipUnreadableImages: true }
+    )
+    const msg = JSON.parse(lastRun().stdin)
+    expect(msg.message.content.map((c: { type: string }) => c.type)).toEqual(['text', 'image'])
+    expect(res.skippedImages).toEqual([missing])
+    expect((await client.ask('claude', 'x')).skippedImages).toBeUndefined()
+  })
+
+  it('separates text parts with a blank line', async () => {
+    await createClient({ path: box.bin }).ask('claude', [
+      { type: 'text', text: 'Intro.' },
+      { type: 'text', text: 'Case 1' }
+    ])
+    expect(lastRun().stdin).toBe('Intro.\n\nCase 1')
+  })
+
+  it('reports a model Claude does not know', async () => {
+    vi.stubEnv('FAKE_ERROR', "There's an issue with the selected model (claude-nonexistent-9). It may not exist or you may not have access to it.")
+    await expect(createClient({ path: box.bin }).ask('claude', 'x', { model: 'claude-nonexistent-9' })).rejects.toMatchObject({
+      code: 'UNKNOWN_MODEL'
+    })
+  })
+
   it('turns CLI errors into codes', async () => {
     vi.stubEnv('FAKE_ERROR', 'Invalid API key · Please run /login')
     const err = (await createClient({ path: box.bin })
@@ -241,6 +275,15 @@ describe('ask: Cursor', () => {
     const run = lastRun()
     expect(run.files.map((f) => f.name)).toEqual(['1-a.jpg'])
     expect(run.stdin).toBe('JSON only.\n\n---\n\nGuarda le immagini.\n\nEvent 1\nImages: 1-a.jpg')
+  })
+
+  it('names the image list as asked', async () => {
+    const red = pngFile(images, 'red.png')
+    await createClient({ path: box.bin }).ask('cursor', [{ type: 'text', text: 'Evento 1' }, { type: 'image', path: red, name: '1-a.jpg' }], {
+      imageHint: 'Guarda le immagini.',
+      imageListLabel: 'Immagini'
+    })
+    expect(lastRun().stdin).toBe('Guarda le immagini.\n\nEvento 1\nImmagini: 1-a.jpg')
   })
 
   it('with a project folder, images go to their own folder added with --add-dir', async () => {

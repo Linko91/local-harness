@@ -132,6 +132,16 @@ describe('getHarnesses', () => {
     expect(box.runs().length).toBe(first * 3)
   })
 
+  it('refresh also re-reads the model catalog', async () => {
+    const client = createClient({ path: box.bin, harnesses: ['cursor'] })
+    const models = () => box.runs().filter((r) => r.args[0] === 'models').length
+    await client.getHarness('cursor')
+    await client.getModels('cursor')
+    expect(models()).toBe(1)
+    await client.getHarness('cursor', { refresh: true })
+    expect(models()).toBe(2)
+  })
+
   it('uses a binary override, relative paths included', async () => {
     const client = createClient({ path: '/nowhere', bins: { claude: join(box.bin, 'claude') } })
     expect((await client.getHarness('claude', { detail: 'basic' })).installed).toBe(true)
@@ -150,10 +160,12 @@ describe('getModels', () => {
     expect(box.runs().filter((r) => r.args[0] === 'models').length).toBe(2)
   })
 
-  it('refuses a CLI that is not installed', async () => {
+  it('gives a built-in catalog without the CLI, refuses one that comes from the CLI', async () => {
     const client = createClient({ path: '/nowhere' })
-    const err = await client.getModels('claude').catch((e: unknown) => e)
+    const claude = await client.getModels('claude')
+    expect(claude.models.map((m) => m.id)).toEqual(['', 'opus', 'sonnet', 'haiku', 'fable'])
+    const err = await client.getModels('cursor').catch((e: unknown) => e)
     expect(err).toBeInstanceOf(HarnessError)
-    expect(err).toMatchObject({ code: 'NOT_INSTALLED', harness: 'claude' })
+    expect(err).toMatchObject({ code: 'NOT_INSTALLED', harness: 'cursor' })
   })
 })

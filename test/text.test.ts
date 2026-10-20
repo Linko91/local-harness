@@ -63,6 +63,9 @@ describe('classifyError', () => {
     expect(classifyError('You have reached your usage limit')).toBe('USAGE_LIMIT')
     expect(classifyError('Rate limit exceeded')).toBe('USAGE_LIMIT')
     expect(classifyError('model foo not found')).toBe('UNKNOWN_MODEL')
+    expect(classifyError("There's an issue with the selected model (x). It may not exist or you may not have access to it.")).toBe(
+      'UNKNOWN_MODEL'
+    )
     expect(classifyError('segfault')).toBe('CLI_ERROR')
   })
 })
@@ -82,6 +85,9 @@ describe('validators', () => {
     expect(acceptsModel('claude', 'opus')).toBe(true)
     expect(acceptsModel('claude', 'claude-sonnet-4-6')).toBe(true)
     expect(acceptsModel('claude', 'sonnet[1m]')).toBe(true)
+    expect(acceptsModel('claude', 'opusplan')).toBe(true)
+    expect(acceptsModel('claude', 'default')).toBe(true)
+    expect(acceptsModel('claude', 'gpt-9')).toBe(false)
     expect(acceptsModel('claude', 'rm -rf /')).toBe(false)
     expect(acceptsModel('claude', 42)).toBe(false)
     expect(acceptsModel('cursor', 'claude-opus-5-thinking-high-fast')).toBe(true)

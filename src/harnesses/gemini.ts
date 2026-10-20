@@ -45,8 +45,8 @@ export const gemini: Adapter = {
   acceptsModel: (value) => typeof value === 'string' && /^[\w.:/-]{0,64}$/.test(value),
   caps: catalogCaps,
 
-  async build({ parts, system, resolved }) {
-    const text = partsToText(parts)
+  async build({ parts, system, resolved, imageListLabel }) {
+    const text = partsToText(parts, imageListLabel)
     const args = [...(resolved.model ? ['-m', resolved.model] : []), '-p', 'Follow the instructions given on stdin.']
     return {
       args,
