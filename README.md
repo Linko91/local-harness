@@ -7,7 +7,7 @@ One JavaScript API for the AI agent CLIs already installed and logged in on the 
 
 Every CLI has its own flags and output format. local-harness hides them behind one API, so you can build AI tools on top of the agent the user already installed and paid for, without API keys of your own and without one integration per tool.
 
-Zero runtime dependencies. Runs on Node ≥ 20, Electron (main process), Bun and Deno. ESM and CommonJS, with TypeScript types.
+Zero runtime dependencies. Written for Node ≥ 20, Electron (main process), Bun and Deno (see [Tested environments](#tested-environments)). ESM and CommonJS, with TypeScript types.
 
 ```sh
 npm install local-harness
@@ -39,6 +39,14 @@ const { text } = await ask('claude', 'Write a commit message for this diff: …'
 | `opencode` | `opencode`               | `opencode auth list`        | from the CLI (`opencode models`)           | –                 | –                      | –                   | experimental |
 
 "Verified" means the headless flags were tried on a real install; experimental ones follow each CLI's documentation (`verified: false` in the discovery result).
+
+## Tested environments
+
+| OS                    | Runtime      | CLIs                                           | Checked                                   |
+| --------------------- | ------------ | ---------------------------------------------- | ----------------------------------------- |
+| macOS 27.0.1 (arm64)  | Node 24.16.0 | Claude Code 2.1.304, Cursor Agent 2026.10.18   | unit tests, discovery, text and image prompts |
+
+Other environments are not tested yet.
 
 ## Discovery
 

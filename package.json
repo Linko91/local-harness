@@ -16,6 +16,14 @@
   ],
   "author": "Davide Di Modica",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Linko91/local-harness.git"
+  },
+  "homepage": "https://github.com/Linko91/local-harness#readme",
+  "bugs": {
+    "url": "https://github.com/Linko91/local-harness/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
