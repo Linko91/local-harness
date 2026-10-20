@@ -44,7 +44,7 @@ export function classifyError(detail: string): HarnessErrorCode {
   const d = detail.toLowerCase()
   if (/not logged in|log ?in|unauthori[sz]ed|authenticat|\b401\b/.test(d)) return 'NOT_LOGGED_IN'
   if (d.includes('limit') && /usage|rate|reached|quota/.test(d)) return 'USAGE_LIMIT'
-  if (d.includes('model') && /not found|not available|invalid|unknown|does not exist|may not exist|not supported|issue with the selected/.test(d))
+  if (d.includes('model') && /not found|not available|invalid|unknown|does not exist|may not exist|not supported|issue with the selected|cannot use this/.test(d))
     return 'UNKNOWN_MODEL'
   return 'CLI_ERROR'
 }

@@ -235,7 +235,7 @@ describe('ask: Cursor', () => {
     const res = await client.ask('cursor', 'Hello', { system: 'Be brief.' })
     const run = lastRun()
     expect(run.stdin).toBe('Be brief.\n\n---\n\nHello')
-    expect(run.args.slice(0, 4)).toEqual(['-p', '--output-format', 'json', '--trust'])
+    expect(run.args.slice(0, 4)).toEqual(['-p', '--output-format', 'stream-json', '--trust'])
     expect(run.cwd.endsWith(basename(flagValue(run.args, '--workspace') ?? '-'))).toBe(true)
     expect(flagValue(run.args, '--mode')).toBe('ask')
     expect(res).toMatchObject({ text: 'echo: Be brief.\n\n---\n\nHello', cliDurationMs: 900, usage: { inputTokens: 7, outputTokens: 2 } })
@@ -275,6 +275,18 @@ describe('ask: Cursor', () => {
     const run = lastRun()
     expect(run.files.map((f) => f.name)).toEqual(['1-a.jpg'])
     expect(run.stdin).toBe('JSON only.\n\n---\n\nGuarda le immagini.\n\nEvent 1\nImages: 1-a.jpg')
+  })
+
+  it('keeps one copy of an answer Cursor repeated after a reconnect', async () => {
+    const client = createClient({ path: box.bin })
+    vi.stubEnv('FAKE_ATTEMPTS', JSON.stringify(['pong', 'pong']))
+    expect((await client.ask('cursor', 'x')).text).toBe('pong')
+    // The first attempt cut short, then the whole answer.
+    vi.stubEnv('FAKE_ATTEMPTS', JSON.stringify(['Opening `a.png`.', 'Opening `a.png`.{"colour":"red"}']))
+    expect((await client.ask('cursor', 'x')).text).toBe('Opening `a.png`.{"colour":"red"}')
+    // An answer that goes on after the retry is kept whole.
+    vi.stubEnv('FAKE_ATTEMPTS', JSON.stringify(['The answer is', ' 42.']))
+    expect((await client.ask('cursor', 'x')).text).toBe('The answer is 42.')
   })
 
   it('names the image list as asked', async () => {

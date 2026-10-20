@@ -99,7 +99,7 @@ The same check for one CLI. Always resolves, installed or not.
 
 ### `getModels(id, { refresh? })`
 
-Only the model catalog. Cursor's and OpenCode's come from the CLI and are cached for 10 minutes; they reject with `NOT_INSTALLED` when the CLI is missing. The built-in catalogs (Claude Code, Codex, Gemini) are returned even without the CLI.
+Only the model catalog. Cursor's comes from the CLI, is cached for 10 minutes, and rejects with `NOT_INSTALLED` when the CLI is missing. OpenCode's is read from the CLI when it is installed. Without the CLI, every other harness returns its built-in catalog (for OpenCode, only the default entry).
 
 ## Interaction
 
@@ -217,7 +217,7 @@ Everything throws `HarnessError`, with a stable `code`, an English `message`, th
 
 ## Known quirks
 
-- Cursor Agent sometimes loses its connection and reconnects; after a reconnect it can repeat its answer (`"pongpong"`). `extractJson()` copes with a repeated JSON object.
+- Cursor Agent sometimes loses its connection and reconnects, then runs the turn again; its own result is both attempts put together (`"pongpong"`). When the earlier attempt is the start of the last one, `ask()` returns only the last one. `extractJson()` also copes with a repeated JSON object.
 - Claude Code has no command that lists models: the catalog has only the aliases, which follow the latest version of each family. Full names (`claude-…`) are accepted as custom models.
 
 ## Development

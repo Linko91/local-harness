@@ -66,6 +66,7 @@ describe('classifyError', () => {
     expect(classifyError("There's an issue with the selected model (x). It may not exist or you may not have access to it.")).toBe(
       'UNKNOWN_MODEL'
     )
+    expect(classifyError('Cannot use this model: nope-9. Available models: auto, gpt-5.5')).toBe('UNKNOWN_MODEL')
     expect(classifyError('segfault')).toBe('CLI_ERROR')
   })
 })

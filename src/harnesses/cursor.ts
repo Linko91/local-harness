@@ -8,7 +8,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { cliError } from '../errors.js'
 import { DEFAULT_IMAGE_HINT, hasImages, partsToText } from '../images.js'
-import { jsonLines, num, resultObject, str, stripControl } from '../text.js'
+import { isRecord, jsonLines, num, resultObject, str, stripControl } from '../text.js'
 import type { Effort, ModelCatalog, ModelInfo, ModelVariant } from '../types.js'
 import { type Adapter, EFFORTS, catalogCaps, failureDetail, findModel } from './adapter.js'
 
@@ -151,7 +151,8 @@ export const cursor: Adapter = {
     const prompt = [system, system !== undefined ? '---' : undefined, images ? imageHint || DEFAULT_IMAGE_HINT : undefined, text]
       .filter((s): s is string => s !== undefined)
       .join('\n\n')
-    const args = ['-p', '--output-format', 'json', '--trust', '--workspace', cwd]
+    // stream-json shows the reconnects that make Cursor repeat its answer (see `parse`).
+    const args = ['-p', '--output-format', 'stream-json', '--trust', '--workspace', cwd]
     if (resolved.model) args.push('--model', resolved.model)
     const optional = [
       '--mode',
@@ -170,7 +171,7 @@ export const cursor: Adapter = {
     const cliDurationMs = num(json.duration_ms)
     const sessionId = str(json.session_id)
     return {
-      text: json.result,
+      text: withoutRetries(json.result, jsonLines(out.stdout)),
       ...(cliDurationMs !== undefined ? { cliDurationMs } : {}),
       usage: {
         ...(inputTokens !== undefined ? { inputTokens } : {}),
@@ -179,4 +180,23 @@ export const cursor: Adapter = {
       ...(sessionId ? { sessionId } : {})
     }
   }
+}
+
+/**
+ * After a lost connection Cursor runs the turn again, and its result is every
+ * attempt's text put together ("pongpong"). When each earlier attempt is the
+ * start of the last one, the last one is the answer; anything else (an answer
+ * that really continues after the retry) is kept whole.
+ */
+export function withoutRetries(result: string, events: Record<string, unknown>[]): string {
+  const attempts: string[] = ['']
+  for (const e of events) {
+    if (e.type === 'retry' && e.subtype === 'starting') attempts.push('')
+    else if (e.type === 'assistant' && isRecord(e.message) && Array.isArray(e.message.content)) {
+      for (const c of e.message.content) if (isRecord(c) && typeof c.text === 'string') attempts[attempts.length - 1] += c.text
+    }
+  }
+  const last = attempts[attempts.length - 1] ?? ''
+  if (attempts.length < 2 || !last.trim() || attempts.join('') !== result) return result
+  return attempts.slice(0, -1).every((a) => last.trimStart().startsWith(a.trim())) ? last : result
 }

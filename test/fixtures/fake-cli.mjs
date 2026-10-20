@@ -7,6 +7,7 @@
 //   FAKE_REJECT_FLAG refuse this flag as unknown
 //   FAKE_DELAY_MS    wait before answering
 //   FAKE_LOGGED_IN   "0" = not logged in
+//   FAKE_ATTEMPTS    Cursor: JSON list of the texts of each attempt, with a reconnect between them
 
 import { appendFileSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -122,7 +123,20 @@ switch (kind) {
       out(JSON.stringify({ type: 'result', subtype: 'error', is_error: true, result: env.FAKE_ERROR }))
       process.exit(1)
     }
-    out(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, duration_ms: 900, result: answer, session_id: 'c-1', usage: { inputTokens: 7, outputTokens: 2 } }))
+    const attempts = env.FAKE_ATTEMPTS ? JSON.parse(env.FAKE_ATTEMPTS) : [answer]
+    if (after('--output-format') === 'stream-json') {
+      out(JSON.stringify({ type: 'system', subtype: 'init', model: 'Auto' }))
+      attempts.forEach((text, i) => {
+        if (i > 0) {
+          out(JSON.stringify({ type: 'retry', subtype: 'starting', attempt: i, is_resume: true }))
+          out(JSON.stringify({ type: 'retry', subtype: 'resuming', attempt: i }))
+          out(JSON.stringify({ type: 'connection', subtype: 'reconnected' }))
+        }
+        out(JSON.stringify({ type: 'thinking', subtype: 'delta', text: '…' }))
+        out(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text }] } }))
+      })
+    }
+    out(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, duration_ms: 900, result: attempts.join(''), session_id: 'c-1', usage: { inputTokens: 7, outputTokens: 2 } }))
     process.exit(0)
   }
   case 'codex': {

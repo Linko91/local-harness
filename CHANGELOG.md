@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+### Fixed
+- Cursor: after a reconnect Cursor runs the turn again and returns both attempts together (`"pongpong"`). `ask()` now returns only the last attempt when the earlier ones are its start. Cursor runs with `--output-format stream-json` to see the reconnects.
+- Cursor's "Cannot use this model" is reported as `UNKNOWN_MODEL` instead of `CLI_ERROR`.
+
+### Docs
+- `getModels('opencode')` without the CLI returns the default entry; it does not reject, as the 0.1.1 notes said.
+
 ## 0.1.1
 
 ### Fixed
